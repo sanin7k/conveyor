@@ -50,18 +50,18 @@ Workers are intentionally stubbed — the project demonstrates the infrastructur
 
 ## watch-jobs
 
-A live terminal dashboard that updates in-place, similar to a package manager progress display.
+A live terminal dashboard that updates in-place. One row per job, no scrolling.
 
 ```
 CONVEYOR — 4 jobs
 
-[████████████░░░░]  resize_image     abc123   running   attempt 1/3
-[████████████████]  send_email       def456   done      1.8s
-[░░░░░░░░░░░░░░░░]  generate_report  ghi789   pending   —
-[████████░░░░░░░░]  send_email       jkl012   failed    attempt 2/3
+[✓]  send_email       def456   done      1.8s
+[/]  resize_image     abc123   running   attempt 1/3
+[✗]  send_email       jkl012   failed    attempt 3/3
+[|]  generate_report  ghi789   running   attempt 1/3
 ```
 
-Each job is a row. The display rewrites in place using ANSI escape codes — no scrolling log.
+Running jobs show a cycling `\|/-` spinner. Completed jobs show `✓`, permanently failed jobs show `✗`. Rewrites in place using ANSI escape codes.
 
 ---
 
