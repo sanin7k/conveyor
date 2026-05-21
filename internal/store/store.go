@@ -42,7 +42,13 @@ func (s *Store) UpdateJob(ctx context.Context, j job.Job) error {
 
 	query += "WHERE id = $4"
 
-	result, err := s.db.ExecContext(ctx, query, j.Status, j.Attempts, j.ErrorMessage, j.ID)
+	var errMsg string
+
+	if j.ErrorMessage != nil {
+		errMsg = *j.ErrorMessage
+	}
+
+	result, err := s.db.ExecContext(ctx, query, j.Status, j.Attempts, errMsg, j.ID)
 	if err != nil {
 		return err
 	}
@@ -61,21 +67,27 @@ func (s *Store) UpdateJob(ctx context.Context, j job.Job) error {
 
 func (s *Store) GetJob(ctx context.Context, id string) (job.Job, error) {
 	query := `
-		SELECT id, job_type, payload, status, attempts
+		SELECT id, job_type, payload, status, attempts, error_message
 		FROM jobs
 		WHERE id = $1
 	`
 
 	var j job.Job
+	var errMsg string
 
-	err := s.db.QueryRowContext(ctx, query, id).Scan(&j.ID, &j.Type, &j.Payload, &j.Status, &j.Attempts)
+	err := s.db.QueryRowContext(ctx, query, id).Scan(&j.ID, &j.Type, &j.Payload, &j.Status, &j.Attempts, &errMsg)
+	if errMsg == "" {
+		j.ErrorMessage = nil
+	} else {
+		j.ErrorMessage = &errMsg
+	}
 
 	return j, err
 }
 
 func (s *Store) ListJobs(ctx context.Context) ([]job.Job, error) {
 	query := `
-		SELECT id, job_type, payload, status, attempts
+		SELECT id, job_type, payload, status, attempts, error_message
 		FROM jobs
 	`
 
@@ -89,10 +101,16 @@ func (s *Store) ListJobs(ctx context.Context) ([]job.Job, error) {
 
 	for rows.Next() {
 		var j job.Job
+		var errMsg string
 
-		err := rows.Scan(&j.ID, &j.Type, &j.Payload, &j.Status, &j.Attempts)
+		err := rows.Scan(&j.ID, &j.Type, &j.Payload, &j.Status, &j.Attempts, &errMsg)
 		if err != nil {
 			return nil, err
+		}
+		if errMsg == "" {
+			j.ErrorMessage = nil
+		} else {
+			j.ErrorMessage = &errMsg
 		}
 
 		jobs = append(jobs, j)
@@ -108,7 +126,7 @@ func (s *Store) ListJobs(ctx context.Context) ([]job.Job, error) {
 
 func (s *Store) GetPendingJobs(ctx context.Context) ([]job.Job, error) {
 	query := `
-		SELECT id, job_type, payload, status, attempts
+		SELECT id, job_type, payload, status, attempts, error_message
 		FROM jobs
 		WHERE status = 'pending'
 	`
@@ -124,7 +142,7 @@ func (s *Store) GetPendingJobs(ctx context.Context) ([]job.Job, error) {
 	for rows.Next() {
 		var j job.Job
 
-		err := rows.Scan(&j.ID, &j.Type, &j.Payload, &j.Status, &j.Attempts)
+		err := rows.Scan(&j.ID, &j.Type, &j.Payload, &j.Status, &j.Attempts, &j.ErrorMessage)
 		if err != nil {
 			return nil, err
 		}

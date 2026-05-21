@@ -1,22 +1,28 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
-	"net/http"
 	"log"
+	"net/http"
+	"errors"
+
 	"github.com/google/uuid"
 
 	"github.com/sanin7k/conveyor/internal/dispatcher"
 	"github.com/sanin7k/conveyor/internal/job"
+	"github.com/sanin7k/conveyor/internal/store"
 )
 
 type Handler struct {
 	d *dispatcher.Dispatcher
+	s *store.Store
 }
 
-func NewHandler(d *dispatcher.Dispatcher) *Handler {
+func NewHandler(d *dispatcher.Dispatcher, s *store.Store) *Handler {
 	return &Handler{
 		d: d,
+		s: s,
 	}
 }
 
@@ -58,11 +64,30 @@ func (h *Handler) handleSubmit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleGetJob(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "not implemented", http.StatusNotImplemented)
+	id := r.PathValue("id")
+
+	job, err := h.s.GetJob(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			http.Error(w, "job not found", http.StatusNotFound)
+			return
+		}
+
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, job)
 }
 
 func (h *Handler) handleListJobs(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "not implemented", http.StatusNotImplemented)
+	jobs, err := h.s.ListJobs(r.Context())
+	if err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, jobs)
 }
 
 func writeJSON(w http.ResponseWriter, status int, data any) {

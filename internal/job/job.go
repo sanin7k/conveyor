@@ -7,16 +7,16 @@ type JobStatus string
 const (
 	Pending JobStatus = "pending"
 	Running JobStatus = "running"
-	Done JobStatus = "done"
-	Failed JobStatus = "failed"
+	Done 		JobStatus = "done"
+	Failed 	JobStatus = "failed"
 )
 
 type Job struct {
-	ID string
-	Type string
-	Payload json.RawMessage
-	Status JobStatus
-	Attempts int
-	ErrorMessage string
+	ID string								`json:"id"`
+	Type string 						`json:"type"`
+	Payload json.RawMessage `json:"payload"`
+	Status JobStatus 				`json:"status"`
+	Attempts int 						`json:"attempts"`
+	ErrorMessage *string 		`json:"error_message,omitempty"`
 }
 

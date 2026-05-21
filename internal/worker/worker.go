@@ -55,16 +55,17 @@ func (wp *WorkerPool) runWorker() {
 			err := process(j)
 
 			var status job.JobStatus
-			var errmsg string
+			var result Result
 
 			if err == nil {
-				status = "done"
+				status = job.Done
+				result = Result{j.ID, status, nil}
 			} else {
-				status = "failed"
-				errmsg = err.Error()
-			}
+				status = job.Failed
+				errmsg := err.Error()
+				result = Result{j.ID, status, &errmsg}
 
-			result := Result{j.ID, status, errmsg}
+			}
 			wp.results <- result
 		}
 	}

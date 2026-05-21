@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,8 +11,11 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/lib/pq"
+
 	"github.com/sanin7k/conveyor/internal/api"
 	"github.com/sanin7k/conveyor/internal/dispatcher"
+	"github.com/sanin7k/conveyor/internal/store"
 )
 
 func main() {
@@ -22,11 +26,26 @@ func main() {
 	)
 	defer stop()
 
-	d := dispatcher.New(ctx, 10, 4)
+	db, err := sql.Open(
+		"postgres",
+		"postgres://conveyor:conveyor@localhost:5432/conveyor?sslmode=disable",
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = db.Ping()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	s := store.New(db)
+
+	d := dispatcher.New(ctx, s, 10, 4)
 
 	mux := http.NewServeMux()
 
-	h := api.NewHandler(d)
+	h := api.NewHandler(d, s)
 	h.RegisterRoutes(mux)
 
 	server := http.Server{
