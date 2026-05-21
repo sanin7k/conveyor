@@ -17,5 +17,6 @@ type Job struct {
 	Payload json.RawMessage
 	Status JobStatus
 	Attempts int
+	ErrorMessage string
 }
 

@@ -39,8 +39,6 @@ func (h *Handler) handleSubmit(w http.ResponseWriter, r *http.Request) {
 		ID: uuid.NewString(),
 		Type: jobReq.Type,
 		Payload: jobReq.Payload,
-		Status: "pending",
-		Attempts: 0,
 	}
 
 	err = h.d.Submit(job)	
