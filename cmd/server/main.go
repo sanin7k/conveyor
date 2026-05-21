@@ -3,14 +3,15 @@ package main
 import (
 	"context"
 	"fmt"
-	"math/rand"
+	"log"
+	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
+	"time"
 
+	"github.com/sanin7k/conveyor/internal/api"
 	"github.com/sanin7k/conveyor/internal/dispatcher"
-	"github.com/sanin7k/conveyor/internal/job"
 )
 
 func main() {
@@ -22,30 +23,38 @@ func main() {
 	defer stop()
 
 	d := dispatcher.New(ctx, 10, 4)
+
+	mux := http.NewServeMux()
+
+	h := api.NewHandler(d)
+	h.RegisterRoutes(mux)
+
+	server := http.Server{
+		Addr: ":8080",
+		Handler: mux,
+	}
+
 	d.Start()
 
-	types := []string{
-		"sendEmail",
-		"generateReport",
-		"resizeImage",
-	}
-	
-	for i := range 10 {
-		j := job.Job{
-			ID: strconv.Itoa(i),
-			Type: types[rand.Intn(len(types))],
-			Payload: nil,
-			Status: "pending",
-			Attempts: 0,
+	go func() {
+		log.Println("server listening on :8080")
+
+		err := server.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
 		}
-		d.Submit(j)
-		fmt.Println("Submitted Job: [", j.ID, "] ", j.Type)
-	}
+	}()
 
 	<-ctx.Done()
 
-	fmt.Println("Signal received")
-	fmt.Println("Shutting down")
+	fmt.Println()
+	log.Println("signal received")
+	log.Println("shutting down")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
+	defer cancel()
+
+	server.Shutdown(shutdownCtx)
 
 	d.Shutdown()
 }

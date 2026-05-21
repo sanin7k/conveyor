@@ -2,7 +2,7 @@ package dispatcher
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"sync"
 
 	"github.com/sanin7k/conveyor/internal/job"
@@ -35,11 +35,12 @@ func (d *Dispatcher) Start() {
 	go d.readResults() 
 }
 
-func (d *Dispatcher) Submit(job job.Job) {
+func (d *Dispatcher) Submit(job job.Job) error {
 	err := d.q.Submit(job)
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 	}
+	return err
 }
 
 func (d *Dispatcher) Shutdown() {
@@ -54,7 +55,7 @@ func (d *Dispatcher) readResults() {
 	defer d.wg.Done()
 
 	for res := range d.results {
-		fmt.Println("[ ", res.JobID, " ]: ", res.ResultStatus)
+		log.Println("[ ", res.JobID, " ]: ", res.ResultStatus)
 	}
 }
 

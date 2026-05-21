@@ -3,7 +3,7 @@ package worker
 import (
 	"context"
 	"sync"
-	"fmt"
+	"log"
 
 	"github.com/sanin7k/conveyor/internal/queue"
 	"github.com/sanin7k/conveyor/internal/job"
@@ -40,12 +40,12 @@ func (wp *WorkerPool) Stop() {
 func (wp *WorkerPool) runWorker() {
 	defer wp.wg.Done()
 
-	fmt.Println("Worker starting")
+	log.Println("worker starting")
 
 	for {
 		select {
 		case <-wp.ctx.Done():
-			fmt.Println("Worker shutting down")
+			log.Println("worker shutting down")
 			return
 		case j, ok := <-wp.jobQueue.Jobs():
 			if !ok {
