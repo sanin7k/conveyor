@@ -42,13 +42,7 @@ func (s *Store) UpdateJob(ctx context.Context, j job.Job) error {
 
 	query += "WHERE id = $4"
 
-	var errMsg string
-
-	if j.ErrorMessage != nil {
-		errMsg = *j.ErrorMessage
-	}
-
-	result, err := s.db.ExecContext(ctx, query, j.Status, j.Attempts, errMsg, j.ID)
+	result, err := s.db.ExecContext(ctx, query, j.Status, j.Attempts, j.ErrorMessage, j.ID)
 	if err != nil {
 		return err
 	}
@@ -73,13 +67,13 @@ func (s *Store) GetJob(ctx context.Context, id string) (job.Job, error) {
 	`
 
 	var j job.Job
-	var errMsg string
+	var errMsg sql.NullString
 
 	err := s.db.QueryRowContext(ctx, query, id).Scan(&j.ID, &j.Type, &j.Payload, &j.Status, &j.Attempts, &errMsg)
-	if errMsg == "" {
-		j.ErrorMessage = nil
+	if errMsg.Valid {
+		j.ErrorMessage = &errMsg.String
 	} else {
-		j.ErrorMessage = &errMsg
+		j.ErrorMessage = nil
 	}
 
 	return j, err
@@ -101,16 +95,16 @@ func (s *Store) ListJobs(ctx context.Context) ([]job.Job, error) {
 
 	for rows.Next() {
 		var j job.Job
-		var errMsg string
+		var errMsg sql.NullString
 
 		err := rows.Scan(&j.ID, &j.Type, &j.Payload, &j.Status, &j.Attempts, &errMsg)
 		if err != nil {
 			return nil, err
 		}
-		if errMsg == "" {
-			j.ErrorMessage = nil
+		if errMsg.Valid {
+			j.ErrorMessage = &errMsg.String
 		} else {
-			j.ErrorMessage = &errMsg
+			j.ErrorMessage = nil
 		}
 
 		jobs = append(jobs, j)
@@ -141,10 +135,16 @@ func (s *Store) GetPendingJobs(ctx context.Context) ([]job.Job, error) {
 
 	for rows.Next() {
 		var j job.Job
+		var errMsg sql.NullString
 
-		err := rows.Scan(&j.ID, &j.Type, &j.Payload, &j.Status, &j.Attempts, &j.ErrorMessage)
+		err := rows.Scan(&j.ID, &j.Type, &j.Payload, &j.Status, &j.Attempts, &errMsg)
 		if err != nil {
 			return nil, err
+		}
+		if errMsg.Valid {
+			j.ErrorMessage = &errMsg.String
+		} else {
+			j.ErrorMessage = nil
 		}
 
 		jobs = append(jobs, j)
