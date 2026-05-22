@@ -122,7 +122,7 @@ func (s *Store) GetPendingJobs(ctx context.Context) ([]job.Job, error) {
 	query := `
 		SELECT id, job_type, payload, status, attempts, error_message
 		FROM jobs
-		WHERE status = 'pending'
+		WHERE status IN ('pending', 'running')
 	`
 
 	rows, err := s.db.QueryContext(ctx, query)
