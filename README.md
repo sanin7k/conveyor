@@ -9,7 +9,7 @@ Async job queue and task runner in Go. Jobs are submitted over HTTP, processed b
 ```
 POST /jobs → [channel] → [worker pool] → PostgreSQL
                                               │
-                                         GET /jobs/:id
+                                         GET /jobs/{id}
 ```
 
 - Jobs move through: `pending → running → done / failed`
@@ -24,7 +24,7 @@ POST /jobs → [channel] → [worker pool] → PostgreSQL
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/jobs` | Submit a job |
-| GET | `/jobs/:id` | Get job status |
+| GET | `/jobs/{id}` | Get job status |
 | GET | `/jobs` | List all jobs |
 
 **Submit a job:**
@@ -53,12 +53,14 @@ Workers are intentionally stubbed — the project demonstrates the infrastructur
 A live terminal dashboard that updates in-place. One row per job, no scrolling.
 
 ```
-CONVEYOR — 4 jobs
+Conveyor -  4  jobs
 
-[✓]  send_email       def456   done      1.8s
-[/]  resize_image     abc123   running   attempt 1/3
-[✗]  send_email       jkl012   failed    attempt 3/3
-[|]  generate_report  ghi789   running   attempt 1/3
+       ID          Job Type          Status    Attempts  
+
+ [✓]   89cb107d    sendEmail         done      1/3
+ [✓]   fd39dc75    generateReport    done      1/3
+ [✗]   929d84c1    sendEmail         failed    3/3
+ [/]   090c5cc4    resizeImage       running   0/3
 ```
 
 Running jobs show a cycling `\|/-` spinner. Completed jobs show `✓`, permanently failed jobs show `✗`. Rewrites in place using ANSI escape codes.
@@ -68,43 +70,12 @@ Running jobs show a cycling `\|/-` spinner. Completed jobs show `✓`, permanent
 ## Setup
 
 ```bash
-# Configure
-export DATABASE_URL="postgres://localhost/conveyor?sslmode=disable"
-export WORKER_COUNT=5
-export PORT=8080
-
 # Run
 go run ./cmd/server
 
 # Watch
 go run ./cmd/watch-jobs
 ```
-
----
-
-## Structure
-
-```
-conveyor/
-├── cmd/
-│   ├── server/      # HTTP server + worker pool
-│   └── watch-jobs/  # Terminal dashboard
-├── internal/
-│   ├── queue/       # In-memory channel
-│   ├── worker/      # Worker pool and job execution
-│   ├── store/       # PostgreSQL persistence
-│   └── api/         # HTTP handlers
-└── schema.sql
-```
-
----
-
-## Design notes
-
-- **In-memory channel over DB polling** — workers pick up jobs immediately. On crash, startup recovery reloads `pending` and `running` jobs from PostgreSQL.
-- **`running` state written immediately** — distinguishes interrupted jobs from unstarted ones on recovery.
-- **Fixed worker count** — explicit concurrency bound, predictable DB connection usage.
-- **Graceful shutdown** — on `SIGINT`, stops intake, drains in-flight jobs, then exits cleanly.
 
 ---
 
