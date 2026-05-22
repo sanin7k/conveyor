@@ -40,7 +40,7 @@ func (d *Dispatcher) Start() {
 	
 	d.wg.Add(1)
 
-	go d.readResults() 
+	go d.readStatusUpdate() 
 
 	pendingJobs, err := d.s.GetPendingJobs(d.ctx)
 	if err != nil {
@@ -78,7 +78,7 @@ func (d *Dispatcher) Shutdown() {
 	d.wg.Wait()
 }
 
-func (d *Dispatcher) readResults() {
+func (d *Dispatcher) readStatusUpdate() {
 	defer d.wg.Done()
 
 	for statusUpdate := range d.statusUpdateChan {
