@@ -18,19 +18,19 @@ type Dispatcher struct {
 	s *store.Store
 	q *queue.Queue
 	wp *worker.WorkerPool
-	results chan worker.Result
+	statusUpdateChan chan worker.StatusUpdate
 	wg sync.WaitGroup
 	ctx context.Context
 }
 
 func New(ctx context.Context, s *store.Store, queueSize int, numWorkers int) *Dispatcher {
 	q := queue.New(queueSize)
-	results := make(chan worker.Result, numWorkers)
+	statusUpdateChan:= make(chan worker.StatusUpdate, numWorkers)
 	return &Dispatcher{
 		s: s,
 		q: q,
-		wp: worker.NewWorkerPool(ctx, numWorkers, q, results),
-		results: results,
+		wp: worker.NewWorkerPool(ctx, numWorkers, q, statusUpdateChan),
+		statusUpdateChan: statusUpdateChan,
 		ctx: ctx,
 	}
 }
@@ -73,7 +73,7 @@ func (d *Dispatcher) Submit(job job.Job) error {
 func (d *Dispatcher) Shutdown() {
 	d.wp.Stop()
 
-	close(d.results)
+	close(d.statusUpdateChan)
 
 	d.wg.Wait()
 }
@@ -81,17 +81,19 @@ func (d *Dispatcher) Shutdown() {
 func (d *Dispatcher) readResults() {
 	defer d.wg.Done()
 
-	for res := range d.results {
-		log.Println("[", res.JobID, "]: ", res.ResultStatus)
+	for statusUpdate := range d.statusUpdateChan {
+		log.Println("[", statusUpdate.JobID, "]: ", statusUpdate.ResultStatus)
 
-		j, err := d.s.GetJob(d.ctx, res.JobID)
+		j, err := d.s.GetJob(d.ctx, statusUpdate.JobID)
 		if err != nil {
 			log.Println(err)
 		}
 		
-		j.Status = res.ResultStatus
-		j.ErrorMessage = res.ErrorMessage
-		j.Attempts += 1
+		j.Status = statusUpdate.ResultStatus
+		j.ErrorMessage = statusUpdate.ErrorMessage
+		if j.Status == job.Failed || j.Status == job.Done {
+			j.Attempts += 1
+		}
 
 		err = d.s.UpdateJob(d.ctx, j)
 		if err != nil {
@@ -100,14 +102,15 @@ func (d *Dispatcher) readResults() {
 		
 		if j.Status == job.Failed && j.Attempts < maxAttempts {
 			go func(j job.Job) {
-				time.Sleep(
-					time.Duration(1 << j.Attempts) * time.Second,
-				)
 				j.Status = job.Pending
 				err = d.s.UpdateJob(d.ctx, j)
 				if err != nil {
 					log.Println(err)
 				}
+
+				time.Sleep(
+					time.Duration(1 << j.Attempts) * time.Second,
+				)
 
 				err := d.q.Submit(j)
 				if err != nil {

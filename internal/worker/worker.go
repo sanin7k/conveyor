@@ -13,15 +13,15 @@ type WorkerPool struct {
 	numWorkers int
 	jobQueue *queue.Queue
 	wg sync.WaitGroup	
-	results chan Result
+	statusUpdateChan chan StatusUpdate
 	ctx context.Context
 }
 
-func NewWorkerPool(ctx context.Context, numWorkers int, jobQueue *queue.Queue, results chan Result) *WorkerPool {
+func NewWorkerPool(ctx context.Context, numWorkers int, jobQueue *queue.Queue, statusUpdateChan chan StatusUpdate) *WorkerPool {
 	return &WorkerPool{
 		numWorkers: numWorkers,
 		jobQueue: jobQueue,
-		results: results,
+		statusUpdateChan: statusUpdateChan,
 		ctx: ctx,
 	}
 }
@@ -52,21 +52,20 @@ func (wp *WorkerPool) runWorker() {
 				return
 			}
 
+			wp.statusUpdateChan <- StatusUpdate{j.ID, job.Running, nil}
+
 			err := process(j)
 
-			var status job.JobStatus
-			var result Result
+			var statusUpdate StatusUpdate
 
 			if err == nil {
-				status = job.Done
-				result = Result{j.ID, status, nil}
+				statusUpdate = StatusUpdate{j.ID, job.Done, nil}
 			} else {
-				status = job.Failed
 				errmsg := err.Error()
-				result = Result{j.ID, status, &errmsg}
+				statusUpdate = StatusUpdate{j.ID, job.Failed, &errmsg}
 
 			}
-			wp.results <- result
+			wp.statusUpdateChan <- statusUpdate
 		}
 	}
 }
